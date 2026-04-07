@@ -24,7 +24,7 @@ Return:
     const res = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "mistralai/mistral-7b-instruct",
+        model: "nvidia/nemotron-3-super-120b-a12b:free",
         messages: [{ role: "user", content: prompt }]
       },
       {
@@ -34,6 +34,7 @@ Return:
         }
       }
     );
+    console.log("AI response:", res.data.choices[0].message.content);
 
     return JSON.parse(res.data.choices[0].message.content);
   } catch (err) {

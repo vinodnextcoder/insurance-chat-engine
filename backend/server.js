@@ -12,10 +12,7 @@ app.use(express.json());
 app.post("/chat", async (req, res) => {
   const { session_id, message } = req.body;
   const response = await handleMessage(session_id, message);
-  return res.json({ response: "This is a placeholder response." });
-
-
-//   res.json(response);
+  res.json(response);
 });
 
 app.get("/", async (req, res) => {

@@ -8,6 +8,7 @@ export async function handleMessage(sessionId, message) {
 
   // Extract structured data
   const extracted = await extractData(message);
+  console.log("Extracted data:", extracted);
 
   Object.entries(extracted).forEach(([k, v]) => {
     if (v) session.property[k] = v;
