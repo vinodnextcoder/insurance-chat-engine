@@ -71,3 +71,23 @@ RETURN JSON ONLY:
     };
   }
 };
+
+export const enrichDataWithAI = async (data) => {
+  // Basic validation (can later call LLM)
+  const requiredFields = [
+    "name",
+    "address",
+    "propertyType",
+    "yearBuilt"
+  ];
+
+  const missingFields = requiredFields.filter(
+    (field) => !data[field]
+  );
+
+  return {
+    isComplete: missingFields.length === 0,
+    missingFields,
+    data
+  };
+};

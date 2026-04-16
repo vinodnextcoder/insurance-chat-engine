@@ -3,10 +3,21 @@ import {
   sendToCarrierAPI
 } from "../services/quote.service.js";
 
-export const generateQuote = (req, res) => {
-  const { sessionData } = req.body;
+import { getSession } from "../store/session.store.js";
 
-  const payload = buildPayload(sessionData);
+// ✅ GENERATE (NOW USES SESSION)
+export const generateQuote = (req, res) => {
+  const { sessionId } = req.body;
+
+  const session = getSession(sessionId);
+
+  if (!session) {
+    return res.status(400).json({
+      error: "Invalid session"
+    });
+  }
+
+  const payload = buildPayload(session.data);
 
   res.json({
     status: "ready",
@@ -14,8 +25,19 @@ export const generateQuote = (req, res) => {
   });
 };
 
+// ✅ SEND (NOW USES SESSION)
 export const sendToCarrier = async (req, res) => {
-  const { payload } = req.body;
+  const { sessionId } = req.body;
+
+  const session = getSession(sessionId);
+
+  if (!session) {
+    return res.status(400).json({
+      error: "Invalid session"
+    });
+  }
+
+  const payload = buildPayload(session.data);
 
   const result = await sendToCarrierAPI(payload);
 
