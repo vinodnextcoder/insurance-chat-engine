@@ -16,7 +16,6 @@ export const startConversation = (req, res) => {
 };
 
 export const askQuestion = async (req, res) => {
-  console.log("Received request body:", req.body);
   const { sessionId, userInput } = req.body;
   console.log("Received user input:", userInput, "for session:", sessionId);
 
@@ -32,8 +31,9 @@ export const askQuestion = async (req, res) => {
     session.data,
     session.history
   );
+  console.log("AI response:", aiResponse);
 
-  if (!aiResponse.isInsurance) {
+  if (!aiResponse?.isInsurance) {
     return res.json({
       message: aiResponse.message,
       collectedData: session.data
@@ -51,6 +51,7 @@ export const askQuestion = async (req, res) => {
   });
 
   updateSession(sessionId, session);
+  console.log("Updated session data:", session);
 
   res.json({
     message: aiResponse.message,

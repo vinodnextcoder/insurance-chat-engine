@@ -1,111 +1,45 @@
 import axios from "axios";
 
-export const buildPayload = (data) => {
+// 🔹 helper function (carrier simulation)
+const callCarrierAPI = async (carrier, data) => {
+  let premium = carrier.base;
+
+  const { property, coverage, risk_profile } = data;
+
+  if (property.location?.toLowerCase().includes("fl")) {
+    premium += 400;
+  }
+
+  if (property.year_built < 2000) premium += 200;
+  if (coverage.wind_hail) premium += 250;
+  if (coverage.hurricane) premium += 350;
+  if (risk_profile.claims_history > 0) premium += 300;
+
+  premium += Math.floor(Math.random() * 200);
+
+  const fees = Math.round(premium * 0.05);
+  const taxes = Math.round(premium * 0.08);
+
   return {
-    applicant: {
-      name: data.name,
-      address: data.address
-    },
-    property: {
-      type: data.propertyType,
-      year_built: data.yearBuilt
-    },
-    coverage: {
-      wind_hail: data.windHail,
-      hurricane: data.hurricane
-    },
-    risk_profile: {
-      claims_history: data.claims
-    }
+    carrier: carrier.name,
+    premium,
+    fees,
+    taxes,
+    total_premium: premium + fees + taxes
   };
 };
-export const sendToCarrierAPI = async (payload) => {
-  try {
-    // 🏢 Mock multiple carriers
-    const carriers = [
-      {
-        name: "Carrier A",
-        baseRate: 900
-      },
-      {
-        name: "Carrier B",
-        baseRate: 1100
-      },
-      {
-        name: "Carrier C",
-        baseRate: 1000
-      }
-    ];
 
-    // 🧮 Generate quotes dynamically
-    const quotes = carriers.map((carrier) => {
-      let premium = carrier.baseRate;
-
-      // 📍 Risk adjustments (simple underwriting logic)
-      if (payload.coverage?.wind_hail) {
-        premium += 200;
-      }
-
-      if (payload.coverage?.hurricane) {
-        premium += 300;
-      }
-
-      if (payload.property?.year_built < 2000) {
-        premium += 150;
-      }
-
-      // 🎲 Add randomness (simulate real pricing variation)
-      premium += Math.floor(Math.random() * 200);
-
-      return {
-        carrier: carrier.name,
-        premium,
-        currency: "USD",
-        deductible: payload.coverage?.wind_hail ? 5000 : 2500,
-        coverage: payload.coverage,
-        underwriting_status: "eligible",
-        disclaimer: "Final premium subject to underwriting approval"
-      };
-    });
-
-    // 🏆 Sort by cheapest (useful for UI)
-    quotes.sort((a, b) => a.premium - b.premium);
-
-    return {
-      success: true,
-      quotes,
-      recommended: quotes[0] // cheapest
-    };
-
-  } catch (err) {
-    return {
-      success: false,
-      error: err.message
-    };
-  }
-};
-
-
-export const generateMultiQuotes = async (data) => {
-  // simulate multiple carriers
+// ✅ MAIN FUNCTION (USED BY CONTROLLER)
+export const calculateQuotes = async (data) => {
   const carriers = [
-    "Carrier A",
-    "Carrier B",
-    "Carrier C"
+    { name: "Liberty Mutual (Mock)", base: 950 },
+    { name: "State Farm (Mock)", base: 1050 },
+    { name: "Allstate (Mock)", base: 1000 }
   ];
 
-  return carriers.map((carrier) => {
-    const base = 800 + Math.random() * 1000;
+  const results = await Promise.all(
+    carriers.map((c) => callCarrierAPI(c, data))
+  );
 
-    return {
-      carrier,
-      premium: Math.round(base),
-      deductible: data.windHail ? 5000 : 2500,
-      coverage: {
-        wind_hail: data.windHail,
-        hurricane: data.hurricane
-      },
-      disclaimer: "Subject to underwriting approval"
-    };
-  });
+  return results.sort((a, b) => a.total_premium - b.total_premium);
 };

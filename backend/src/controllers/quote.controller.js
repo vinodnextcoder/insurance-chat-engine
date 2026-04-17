@@ -1,12 +1,11 @@
 import {
-  buildPayload,
-  sendToCarrierAPI
+  calculateQuotes
 } from "../services/quote.service.js";
 
 import { getSession } from "../store/session.store.js";
 
 // ✅ GENERATE (NOW USES SESSION)
-export const generateQuote = (req, res) => {
+export const generateQuote = async (req, res) => {
   const { sessionId } = req.body;
 
   const session = getSession(sessionId);
@@ -17,11 +16,12 @@ export const generateQuote = (req, res) => {
     });
   }
 
-  const payload = buildPayload(session.data);
+  // const payload = buildPayload(session.data);
+  const quotes = await calculateQuotes(session.data);
 
   res.json({
     status: "ready",
-    payload
+    quotes
   });
 };
 
