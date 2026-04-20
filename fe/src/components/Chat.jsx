@@ -12,6 +12,7 @@ export default function Chat() {
   const [expandedQuote, setExpandedQuote] = useState(null);
   const [collectedData, setCollectedData] = useState({});
   const [generatingQuotes, setGeneratingQuotes] = useState(false);
+  const [messageCounter, setMessageCounter] = useState(0);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -40,22 +41,62 @@ export default function Chat() {
   ];
 
   const formatDataValue = (value) => {
+    // Handle null and undefined
     if (value === null || value === undefined) return 'N/A';
-    if (typeof value === 'object') {
-      // Handle common object structures
-      if (value.street && value.city) {
-        // Address object
-        return `${value.street}, ${value.city}${value.state ? ', ' + value.state : ''}${value.zipCode ? ' ' + value.zipCode : ''}`;
-      }
-      if (value.type && value.yearBuilt) {
-        // Property object
-        return `${value.type} (${value.yearBuilt})`;
-      }
-      // Generic object - show key values
-      const entries = Object.entries(value).filter(([k, v]) => v !== null && v !== undefined && v !== '');
-      if (entries.length === 0) return 'N/A';
-      return entries.map(([k, v]) => `${k}: ${v}`).join(', ');
+    
+    // Handle empty strings after trimming
+    if (typeof value === 'string' && value.trim() === '') return 'N/A';
+    
+    // Handle booleans
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    
+    // Handle numbers
+    if (typeof value === 'number') return value.toString();
+    
+    // Handle strings (including UUIDs and session IDs)
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed || 'N/A';
     }
+    
+    // Handle arrays
+    if (Array.isArray(value)) {
+      if (value.length === 0) return 'N/A';
+      return value.map(v => formatDataValue(v)).join(', ');
+    }
+    
+    // Handle objects
+    if (typeof value === 'object') {
+      try {
+        // Handle common object structures - Address
+        if (value.street && value.city) {
+          const parts = [value.street, value.city];
+          if (value.state) parts.push(value.state);
+          if (value.zipCode) parts.push(value.zipCode);
+          return parts.join(', ');
+        }
+        
+        // Handle common object structures - Property
+        if (value.type && value.yearBuilt) {
+          return `${value.type} (${value.yearBuilt})`;
+        }
+        
+        // Generic object - show key values
+        const entries = Object.entries(value).filter(
+          ([k, v]) => v !== null && v !== undefined && v !== '' && k !== 'id' && k !== '_id'
+        );
+        
+        if (entries.length === 0) return 'N/A';
+        
+        const formattedEntries = entries.map(([k, v]) => `${k}: ${formatDataValue(v)}`);
+        return formattedEntries.join(' | ');
+      } catch (e) {
+        console.error('Error formatting object:', e);
+        return 'Complex Value';
+      }
+    }
+    
+    // Fallback for any other type
     return String(value);
   };
 
@@ -73,15 +114,21 @@ export default function Chat() {
         type: 'insurance_quote'
       });
       setConversationId(response.sessionId);
+      setMessageCounter(1);
+      // Set sessionId in collectedData immediately
+      setCollectedData({
+        sessionId: response.sessionId
+      });
       setMessages([{
-        id: response.sessionId,
+        id: `msg-0`,
         type: 'bot',
         text: response.message || 'Hi! 👋 I\'m your insurance assistant. How can I help you today?'
       }]);
+      console.log('Conversation started. Session ID:', response.sessionId);
     } catch (error) {
       console.error('Failed to start conversation:', error);
-      console.error('Failed to start conversation:', error);
       setMessages([{
+        id: `msg-error-${Date.now()}`,
         type: 'bot',
         text: 'Sorry, I couldn\'t start the conversation. Please try again.'
       }]);
@@ -94,8 +141,9 @@ export default function Chat() {
     e.preventDefault();
     if (!input.trim() || !conversationId) return;
 
+    const userMessageId = `msg-${messageCounter}`;
     const userMessage = {
-      id: Date.now(),
+      id: userMessageId,
       type: 'user',
       text: input
     };
@@ -103,39 +151,45 @@ export default function Chat() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    setMessageCounter(messageCounter + 1);
 
     try {
       const response = await conversationAPI.sendMessage(conversationId, input);
       
-      // Store collected data from response
       if (response.collectedData) {
-        setCollectedData(response.collectedData);
+        console.log('Collected data received:', response.collectedData);
+        console.log('Fields in collected data:', Object.keys(response.collectedData));
+        // Merge with existing collectedData to preserve sessionId
+        setCollectedData(prev => ({
+          ...prev,
+          ...response.collectedData
+        }));
       }
 
+      const botMessageId = `msg-${messageCounter + 1}`;
       setMessages(prev => [...prev, {
-        id: Date.now(),
+        id: botMessageId,
         type: 'bot',
-        text: response.reply || response.message
+        text: response.reply || response.message || 'Unable to process response'
       }]);
 
-      // Check if user confirmed details and we have collected data
+      setMessageCounter(messageCounter + 2);
+
       const userInput = input.toLowerCase();
       const isConfirmation = userInput.includes('yes') || userInput.includes('confirm') || 
                            userInput.includes('proceed') || userInput.includes('correct') ||
                            userInput.includes('right') || userInput.includes('ok');
 
       if (isConfirmation && response.collectedData && Object.keys(response.collectedData).length > 0) {
-        // Automatically generate quotes when user confirms details
         setGeneratingQuotes(true);
         setTimeout(() => {
-          if (generatingQuotes) { // Check if still generating
-            handleGenerateQuotes();
-          }
-        }, 1000); // Small delay for better UX
+          handleGenerateQuotes();
+        }, 1000);
       }
     } catch (error) {
       console.error('Failed to send message:', error);
       setMessages(prev => [...prev, {
+        id: `msg-error-${Date.now()}`,
         type: 'bot',
         text: 'Sorry, I couldn\'t process that. Please try again.'
       }]);
@@ -145,13 +199,16 @@ export default function Chat() {
   };
 
   const handleGenerateQuotes = async () => {
-    if (!generatingQuotes) return; // Don't generate if stopped
-    
     try {
       const response = await quoteAPI.generateQuote(conversationId);
+      console.log('Quote response received:', response);
       if (response.quotes && response.quotes.length > 0) {
+        console.log('Quote structure:', response.quotes[0]);
+        console.log('Available fields in quote:', Object.keys(response.quotes[0]));
         setQuotes(response.quotes);
         setShowQuotesPanel(true);
+      } else {
+        console.warn('No quotes returned in response');
       }
     } catch (error) {
       console.error('Failed to generate quotes:', error);
@@ -228,8 +285,8 @@ export default function Chat() {
           </div>
           
           <div className="messages">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`message message-${msg.type}`}>
+            {messages.map((msg, idx) => (
+              <div key={msg.id || `msg-${idx}`} className={`message message-${msg.type}`}>
                 <div className="message-content">
                   {msg.text}
                 </div>
@@ -299,57 +356,57 @@ export default function Chat() {
               <button onClick={() => setShowQuotesPanel(false)} className="close-btn">×</button>
             </div>
             <div className="quotes-content">
-              {quotes.map((quote, index) => (
-                <div key={index} className="quote-card">
-                  <div className="quote-header" onClick={() => toggleQuoteExpansion(index)}>
-                    <h4>{quote.provider || `Quote ${index + 1}`}</h4>
-                    <span className="quote-price">${quote.premium || quote.price || 'N/A'}</span>
-                    <span className="expand-icon">{expandedQuote === index ? '▼' : '▶'}</span>
-                  </div>
-                  {expandedQuote === index && (
-                    <div className="quote-details">
-                      <div className="property-details">
-                        <h5>Property Details</h5>
-                        <div className="details-grid">
-                          <div className="detail-item">
-                            <span className="label">Address:</span>
-                            <span className="value">{quote.property?.address || 'N/A'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Type:</span>
-                            <span className="value">{quote.property?.type || 'N/A'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Value:</span>
-                            <span className="value">${quote.property?.value || 'N/A'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="label">Year Built:</span>
-                            <span className="value">{quote.property?.yearBuilt || 'N/A'}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="quote-breakdown">
-                        <h5>Quote Breakdown</h5>
-                        <div className="breakdown-items">
-                          <div className="breakdown-item">
-                            <span className="label">Base Premium:</span>
-                            <span className="value">${quote.basePremium || 'N/A'}</span>
-                          </div>
-                          <div className="breakdown-item">
-                            <span className="label">Coverage:</span>
-                            <span className="value">{quote.coverage || 'N/A'}</span>
-                          </div>
-                          <div className="breakdown-item">
-                            <span className="label">Deductible:</span>
-                            <span className="value">${quote.deductible || 'N/A'}</span>
-                          </div>
-                        </div>
-                      </div>
+              {quotes.map((quote, index) => {
+                // Get the primary display value for header
+                const carrierName = quote.carrier || quote.provider || `Quote ${index + 1}`;
+                const totalPrice = quote.total_premium || quote.premium || quote.price || 'N/A';
+                
+                // Get all quote fields excluding internal fields
+                const quoteFields = Object.entries(quote).filter(([key]) => !['_id', 'id'].includes(key));
+                
+                return (
+                  <div key={index} className="quote-card">
+                    <div className="quote-header" onClick={() => toggleQuoteExpansion(index)}>
+                      <h4>{carrierName}</h4>
+                      <span className="quote-price">${totalPrice}</span>
+                      <span className="expand-icon">{expandedQuote === index ? '▼' : '▶'}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {expandedQuote === index && (
+                      <div className="quote-details">
+                        <div className="quote-breakdown">
+                          <h5>Quote Breakdown</h5>
+                          <div className="breakdown-items">
+                            {quoteFields.map(([key, value]) => {
+                              // Format field names for display
+                              const displayKey = key
+                                .replace(/_/g, ' ')
+                                .replace(/([A-Z])/g, ' $1')
+                                .replace(/^./, str => str.toUpperCase())
+                                .trim();
+                              
+                              // Format value for display
+                              let displayValue = formatDataValue(value);
+                              // Add $ for currency-like fields
+                              if (['premium', 'fees', 'taxes', 'total_premium', 'total premium', 'base premium', 'deductible', 'price'].some(term => displayKey.toLowerCase().includes(term))) {
+                                if (displayValue !== 'N/A' && !isNaN(displayValue)) {
+                                  displayValue = `$${displayValue}`;
+                                }
+                              }
+                              
+                              return (
+                                <div key={key} className="breakdown-item">
+                                  <span className="label">{displayKey}:</span>
+                                  <span className="value">{displayValue}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

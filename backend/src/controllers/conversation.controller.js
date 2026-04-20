@@ -36,7 +36,10 @@ export const askQuestion = async (req, res) => {
   if (!aiResponse?.isInsurance) {
     return res.json({
       message: aiResponse.message,
-      collectedData: session.data
+      collectedData: {
+        sessionId,
+        ...session.data
+      }
     });
   }
 
@@ -55,6 +58,9 @@ export const askQuestion = async (req, res) => {
 
   res.json({
     message: aiResponse.message,
-    collectedData: session.data
+    collectedData: {
+      sessionId,
+      ...session.data
+    }
   });
 };
