@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const URL = "https://openrouter.ai/api/v1/chat/completions";
-
+// const URL = "https://openrouter.ai/api/v1/chat/completions";
+const URL = "https://api.groq.com/openai/v1/chat/completions"
 export const getNextStep = async (data, history) => {
   const systemPrompt = `
 You are an AI Insurance Sales Assistant for US Home Insurance.
@@ -28,7 +28,6 @@ RESPONSE FORMAT (STRICT - JSON ONLY):
 {
   "message": "<next question to ask user>",
   "extractedData": {
-    "sessionId": "<session id if available>",
     "applicant": {
       "name": "",
       "address": "",

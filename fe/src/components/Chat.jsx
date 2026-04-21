@@ -24,19 +24,23 @@ export default function Chat() {
   const heroSteps = [
     {
       title: 'Qualify buyers naturally',
-      description: 'Gather property details, coverage needs, and risk profile with smart follow-up questions — no forms, no friction.'
+      description: 'Gather property details, coverage needs, and risk profile with smart follow-up questions — no forms, no friction.',
+      icon: '🎯'
     },
     {
       title: 'Answer questions',
-      description: 'Guide buyers through the insurance process with clear, helpful responses.'
+      description: 'Guide buyers through the insurance process with clear, helpful responses.',
+      icon: '💬'
     },
     {
       title: 'Generate quotes in real time',
-      description: 'Use collected information to present relevant quote options quickly.'
+      description: 'Use collected information to present relevant quote options quickly.',
+      icon: '⚡'
     },
     {
       title: 'Bind or hand off to a licensed agent',
-      description: 'Complete the experience with a smooth agent handoff when needed.'
+      description: 'Complete the experience with a smooth agent handoff when needed.',
+      icon: '✅'
     }
   ];
 
@@ -160,10 +164,21 @@ export default function Chat() {
         console.log('Collected data received:', response.collectedData);
         console.log('Fields in collected data:', Object.keys(response.collectedData));
         // Merge with existing collectedData to preserve sessionId
-        setCollectedData(prev => ({
-          ...prev,
-          ...response.collectedData
-        }));
+        setCollectedData(prev => {
+          // Only include non-empty fields from response
+          const safeData = {};
+          Object.entries(response.collectedData).forEach(([key, value]) => {
+            // Skip empty or null sessionId to preserve the original
+            if (key === 'sessionId' && !value) {
+              return;
+            }
+            safeData[key] = value;
+          });
+          return {
+            ...prev,
+            ...safeData
+          };
+        });
       }
 
       const botMessageId = `msg-${messageCounter + 1}`;
@@ -235,7 +250,10 @@ export default function Chat() {
               <li key={index} className="step-item">
                 <span className="step-index">0{index + 1}</span>
                 <div>
-                  <strong>{step.title}</strong>
+                  <strong>
+                    <span style={{ marginRight: '8px', fontSize: '1.2em' }}>{step.icon}</span>
+                    {step.title}
+                  </strong>
                   <p>{step.description}</p>
                 </div>
               </li>
@@ -269,7 +287,10 @@ export default function Chat() {
             <li key={index} className="step-item">
               <span className="step-index">0{index + 1}</span>
               <div>
-                <strong>{step.title}</strong>
+                <strong>
+                  <span style={{ marginRight: '8px', fontSize: '1.2em' }}>{step.icon}</span>
+                  {step.title}
+                </strong>
                 <p>{step.description}</p>
               </div>
             </li>

@@ -6,7 +6,9 @@ export const createSession = () => {
   const id = uuidv4();
 
   sessions.set(id, {
-    data: {},
+    data: {
+      sessionId: id
+    },
     history: []
   });
 

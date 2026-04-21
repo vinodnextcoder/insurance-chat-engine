@@ -17,7 +17,7 @@ export const startConversation = (req, res) => {
 
 export const askQuestion = async (req, res) => {
   const { sessionId, userInput } = req.body;
-  console.log("Received user input:", userInput, "for session:", sessionId);
+  // console.log("Received user input:", userInput, "for session:", sessionId);
 
   const session = getSession(sessionId);
 
@@ -43,9 +43,13 @@ export const askQuestion = async (req, res) => {
     });
   }
 
+  // Destructure sessionId from extractedData to prevent overwriting
+  const { sessionId: _, ...dataToMerge } = aiResponse.extractedData;
+  
   session.data = {
     ...session.data,
-    ...aiResponse.extractedData
+    ...dataToMerge,
+    sessionId: sessionId  // Explicitly preserve the correct sessionId
   };
 
   session.history.push({
@@ -54,7 +58,7 @@ export const askQuestion = async (req, res) => {
   });
 
   updateSession(sessionId, session);
-  console.log("Updated session data:", session);
+  console.log("Updated session data:", aiResponse.extractedData);
 
   res.json({
     message: aiResponse.message,
